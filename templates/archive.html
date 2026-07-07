@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="msvalidate.01" content="CDD1E0B3687442BDC279F8957E1B2A1B" />
+    <meta name="Bugcool联盟-verification" content="b46ef60788">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>归档 - manyJ's Blog</title>
+    <link rel="stylesheet" href="/css/index/index.css">
+    <link rel="stylesheet" href="/css/archive/archive.css">
+    <link rel="stylesheet" href="/css/all/smalldialog.css">
+    <link rel="icon" href="/css/all/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/css/all/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <!-- 顶栏 -->
+    <header id="nav-header" class="nav-header visible">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <img src="/css/all/favicon.ico" alt="网站图标" class="nav-logo-icon">
+                <span class="nav-logo-text"><span class="logo-j">J</span>的个人博客</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="/" class="nav-link" id="nav-home">首页</a>
+                <a href="/archive" class="nav-link" id="nav-archive">归档</a>
+                <a href="/#friendly-links" class="nav-link" id="nav-friends">友链</a>
+            </nav>
+        </div>
+    </header>
+    
+    <!-- 主内容容器 -->
+    <div class="archive-container">
+        <div class="center-section">
+            <h1>文章归档</h1>
+            
+            <!-- 日期选择器 -->
+            <div class="date-filter-container">
+                <div class="custom-select" id="year-select-container">
+                    <div class="custom-select-trigger">请选择年份</div>
+                    <div class="custom-select-options" id="year-options"></div>
+                    <input type="hidden" id="year-value">
+                </div>
+                <div class="custom-select" id="month-select-container">
+                    <div class="custom-select-trigger">请选择月份</div>
+                    <div class="custom-select-options" id="month-options"></div>
+                    <input type="hidden" id="month-value">
+                </div>
+                <div class="custom-select" id="day-select-container">
+                    <div class="custom-select-trigger">请选择日期</div>
+                    <div class="custom-select-options" id="day-options"></div>
+                    <input type="hidden" id="day-value">
+                </div>
+                <button id="search-btn" class="search-btn">搜索</button>
+            </div>
+            
+            <!-- 文章列表 -->
+            <div class="blog-list" id="archiveList">
+                <p class="no-articles">请选择日期条件后点击搜索</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/js/all/showsmalldialog.js"></script>
+    <script src="/js/archive/archive.js"></script>
+    <script src="/js/security/external-link-warning.js"></script>
+</body>
+</html>

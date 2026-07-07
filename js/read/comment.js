@@ -57,23 +57,23 @@ class CommentSystem {
         const avatar_url = formData.get('avatar_url');
         
         if (!content || content.trim().length === 0) {
-            this.showMessage('评论内容不能为空', 'error');
+            showSmallDialog('评论内容不能为空', 'error');
             return;
         }
 
         if (this.isSinglePunctuation(content.trim())) {
-            this.showMessage('不可发送单个标点符号', 'error');
+            showSmallDialog('不可发送单个标点符号', 'error');
             return;
         }
         
         if (content.length > 1000) {
-            this.showMessage('评论内容过长，请控制在1000字以内', 'error');
+            showSmallDialog('评论内容过长，请控制在1000字以内', 'error');
             return;
         }
         
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!email || !emailRegex.test(email)) {
-            this.showMessage('请输入有效的邮箱地址', 'error');
+            showSmallDialog('请输入有效的邮箱地址', 'error');
             return;
         }
         
@@ -101,7 +101,7 @@ class CommentSystem {
             const data = await response.json();
             
             if (data.success) {
-                this.showMessage('评论发表成功', 'success');
+                showSmallDialog('评论发表成功', 'success');
                 
                 if (textarea) {
                     textarea.value = '';
@@ -109,11 +109,11 @@ class CommentSystem {
                 
                 await this.loadComments();
             } else {
-                this.showMessage(data.message || '评论发表失败', 'error');
+                showSmallDialog(data.message || '评论发表失败', 'error');
             }
         } catch (error) {
             console.error('发表评论失败:', error);
-            this.showMessage('网络错误，请稍后重试', 'error');
+            showSmallDialog('网络错误，请稍后重试', 'error');
         } finally {
             if (submitBtn) {
                 submitBtn.disabled = false;
@@ -323,99 +323,7 @@ class CommentSystem {
             return date.toLocaleDateString('zh-CN');
         }
     }
-    
-    showMessage(message, type = 'info') {
-        const messageEl = document.createElement('div');
-        messageEl.className = `comment-message comment-message-${type}`;
-        messageEl.textContent = message;
-
-        const existingMessages = document.querySelectorAll('.comment-message');
-        
-        let topPosition = 20;
-        
-        if (existingMessages.length > 0) {
-            const lastMessage = existingMessages[existingMessages.length - 1];
-            const lastRect = lastMessage.getBoundingClientRect();
-            topPosition = lastRect.bottom + 10;
-        }
-
-        messageEl.style.cssText = `
-            position: fixed;
-            top: ${topPosition}px;
-            right: 20px;
-            padding: 12px 20px;
-            border-radius: 6px;
-            color: white;
-            font-size: 14px;
-            z-index: 2000;
-            max-width: 300px;
-            word-wrap: break-word;
-            animation: slideIn 0.3s ease;
-        `;
-        
-        if (type === 'success') {
-            messageEl.style.backgroundColor = 'rgba(76, 175, 80, 0.9)';
-        } else if (type === 'error') {
-            messageEl.style.backgroundColor = 'rgba(244, 67, 54, 0.9)';
-        } else {
-            messageEl.style.backgroundColor = 'rgba(33, 150, 243, 0.9)';
-        }
-        
-        document.body.appendChild(messageEl);
-        
-        setTimeout(() => {
-            if (messageEl.parentNode) {
-                messageEl.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => {
-                    if (messageEl.parentNode) {
-                        messageEl.parentNode.removeChild(messageEl);
-                        this.repositionRemainingMessages();
-                    }
-                }, 300);
-            }
-        }, 3000);
-    }
-
-    repositionRemainingMessages() {
-        const remainingMessages = document.querySelectorAll('.comment-message');
-        
-        if (remainingMessages.length === 0) return;
-
-        let currentTop = 20;
-
-        remainingMessages.forEach((msg) => {
-            msg.style.top = currentTop + 'px';
-            const rect = msg.getBoundingClientRect();
-            currentTop = rect.bottom + 10;
-        });
-    }
 }
-
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-    
-    @keyframes slideOut {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-    }
-`;
-document.head.appendChild(style);
 
 document.addEventListener('DOMContentLoaded', () => {
     new CommentSystem();

@@ -1,0 +1,81 @@
+.smalldialog {
+    position: fixed;
+    padding: 12px 20px;
+    border-radius: 6px;
+    color: white;
+    font-size: 14px;
+    z-index: 2000;
+    max-width: 300px;
+    word-wrap: break-word;
+    animation: smalldialogSlideIn 0.3s ease;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+}
+
+.smalldialog-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.smalldialog-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+.smalldialog-content {
+    flex: 1;
+    line-height: 1.4;
+    user-select: none;
+}
+
+.smalldialog-success .smalldialog-icon {
+    background-color: rgba(76, 175, 80, 0.9);
+}
+
+.smalldialog-error .smalldialog-icon {
+    background-color: rgba(244, 67, 54, 0.9);
+}
+
+.smalldialog-warning .smalldialog-icon {
+    background-color: rgba(255, 152, 0, 0.9);
+}
+
+.smalldialog-tip .smalldialog-icon {
+    background-color: rgba(33, 150, 243, 0.9);
+}
+
+.smalldialog-invalid .smalldialog-icon {
+    background-color: rgba(128, 128, 128, 0.9);
+}
+
+@keyframes smalldialogSlideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes smalldialogSlideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}

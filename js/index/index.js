@@ -2,6 +2,43 @@
 let currentCategory = null;
 let categories = [];
 
+// 顶栏控制
+function initNavHeader() {
+    const navHeader = document.getElementById('nav-header');
+    if (!navHeader) return;
+
+    // 处理友链按钮点击事件
+    const friendsLink = document.getElementById('nav-friends');
+    if (friendsLink) {
+        friendsLink.addEventListener('click', function(e) {
+            // 如果当前就在/notitle页面，直接滚动到友链区域
+            if (window.location.pathname === '/notitle') {
+                e.preventDefault();
+                const friendlyLinksSection = document.getElementById('friendly-links');
+                if (friendlyLinksSection) {
+                    friendlyLinksSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+        });
+    }
+}
+
+// 显示顶栏（带动画）
+function showNavHeader() {
+    const navHeader = document.getElementById('nav-header');
+    if (!navHeader) return;
+
+    navHeader.classList.add('visible');
+}
+
+// 直接显示顶栏（无动画，用于不带欢迎页的场景）
+function showNavHeaderImmediate() {
+    const navHeader = document.getElementById('nav-header');
+    if (!navHeader) return;
+
+    navHeader.classList.add('visible');
+}
+
 // 格式化日期显示
 function formatDate(dateStr) {
     if (!dateStr) return '';
@@ -13,15 +50,18 @@ function initWelcomeAnimation() {
     const welcomeScreen = document.getElementById('welcome-screen');
     const mainContent = document.getElementById('main-content');
     
-    // 如果开场页面不存在，直接显示主内容
+    // 如果开场页面不存在（通过/notitle路由访问），直接显示主内容
     if (!welcomeScreen) {
         mainContent.style.display = 'flex';
         mainContent.classList.add('fade-in');
-        
+
+        // 直接显示顶栏（无动画）
+        showNavHeaderImmediate();
+
         // 显示文章内容容器和友链容器
         const blogListContainer = document.querySelector('.center-section:first-of-type');
         const friendlyLinksContainer = document.querySelector('.center-section:last-of-type');
-        
+
         blogListContainer.classList.add('fade-in');
         friendlyLinksContainer.classList.add('fade-in');
         
@@ -81,11 +121,14 @@ function initWelcomeAnimation() {
                 // 显示主内容容器
                 mainContent.style.display = 'flex';
                 mainContent.classList.add('fade-in');
-                
+
+                // 顶栏从顶部滑入
+                showNavHeader();
+
                 // 文章内容容器和友链容器同时在0.5s内渐显
                 const blogListContainer = document.querySelector('.center-section:first-of-type');
                 const friendlyLinksContainer = document.querySelector('.center-section:last-of-type');
-                
+
                 blogListContainer.classList.add('fade-in');
                 friendlyLinksContainer.classList.add('fade-in');
                 
@@ -345,9 +388,12 @@ async function loadFriendlyLinks() {
 
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', () => {
+    // 初始化顶栏
+    initNavHeader();
+
     // 初始化开场动画
     initWelcomeAnimation();
-    
+
     // 加载分类和友情链接，但保持主内容隐藏
     loadCategories();
     loadFriendlyLinks();

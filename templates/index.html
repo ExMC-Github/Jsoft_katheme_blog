@@ -11,6 +11,21 @@
     <link rel="shortcut icon" href="/css/all/favicon.ico" type="image/x-icon">
 </head>
 <body>
+    <!-- 顶栏 -->
+    <header id="nav-header" class="nav-header">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <img src="/css/all/favicon.ico" alt="网站图标" class="nav-logo-icon">
+                <span class="nav-logo-text"><span class="logo-j">J</span>的个人博客</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="/" class="nav-link" id="nav-home">首页</a>
+                <a href="/archive" class="nav-link" id="nav-archive">归档</a>
+                <a href="/#friendly-links" class="nav-link" id="nav-friends">友链</a>
+            </nav>
+        </div>
+    </header>
+    
     <!-- 开场页面 -->
     {% if not skip_welcome %}
     <div id="welcome-screen" class="welcome-screen">
@@ -40,7 +55,7 @@
         </div>
         
         <!-- 友情链接容器 -->
-        <div class="center-section">
+        <div class="center-section" id="friendly-links">
             <h2>友情链接</h2>
             <div class="friendly-links-container">
                 <div class="friendly-links-list" id="friendlyLinksList">

@@ -1,3 +1,4 @@
 {
-    "blogname": "请在blogsettings.json中设置博客名称"
+    "blogname": "请在blogsettings.json中设置博客名称",
+    "close_comment": false
 }

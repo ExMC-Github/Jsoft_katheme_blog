@@ -1,4 +1,4 @@
-from flask import Flask, render_template, send_from_directory, request, jsonify, make_response, Response
+from flask import Flask, render_template, send_from_directory, request, jsonify, make_response, Response, abort
 import os
 import json
 import datetime
@@ -246,6 +246,22 @@ def get_blog_settings():
             return default_settings
     return default_settings
 
+# 读取博客配置
+def load_close_comment_config():
+    """读取 close_comment 配置项"""
+    settings_path = os.path.join(os.path.dirname(__file__), 'blogsettings.json')
+    try:
+        if os.path.exists(settings_path):
+            with open(settings_path, 'r', encoding='utf-8') as f:
+                settings = json.load(f)
+                return settings.get('close_comment', False)
+    except Exception as e:
+        print(f"读取评论关闭配置失败: {e}")
+    return False
+
+# 全局变量：是否关闭评论功能
+CLOSE_COMMENT = load_close_comment_config()
+
 # 博客文章目录
 BLOG_DIR = os.path.join(os.path.dirname(__file__), 'blogs')
 
@@ -413,7 +429,7 @@ def shutdown_rss_cache():
 
 @app.route('/')
 def index():
-    """首页 - 显示文章列表，这个skip_welcome是控制开场动画是否显示的，改成False可以显示开场动画"""
+    """首页 - 显示文章列表，这个skip_welcome不要改成False，懒得移除了就这么补吧，啊啊啊啊啊啊啊啊啊"""
     settings = get_blog_settings()
     return render_template('index.html', skip_welcome=True, blogname=settings['blogname'])
 
@@ -432,6 +448,163 @@ def friendly_links():
             return {}
     else:
         return {}
+
+@app.route('/archive')
+def archive():
+    """归档页面"""
+    return render_template('archive.html')
+
+@app.route('/api/articles/dates')
+def get_articles_dates():
+    """获取所有文章的日期信息"""
+    articles = []
+    
+    if os.path.exists(BLOG_DIR):
+        for cat in os.listdir(BLOG_DIR):
+            category_path = os.path.join(BLOG_DIR, cat)
+            if os.path.isdir(category_path):
+                for article_dir in os.listdir(category_path):
+                    article_path = os.path.join(category_path, article_dir)
+                    if os.path.isdir(article_path):
+                        config_path = os.path.join(article_path, 'config.json')
+                        if os.path.exists(config_path):
+                            try:
+                                with open(config_path, 'r', encoding='utf-8') as f:
+                                    config = json.load(f)
+                                
+                                pub_date = None
+                                if 'pub_date' in config:
+                                    try:
+                                        pub_date = datetime.datetime.fromisoformat(config['pub_date'])
+                                    except:
+                                        pub_date = datetime.datetime.now()
+                                else:
+                                    blog_md_path = os.path.join(article_path, 'blog.md')
+                                    try:
+                                        if os.path.exists(blog_md_path):
+                                            stat_info = os.stat(blog_md_path)
+                                            pub_date = datetime.datetime.fromtimestamp(stat_info.st_mtime)
+                                        else:
+                                            stat_info = os.stat(article_path)
+                                            pub_date = datetime.datetime.fromtimestamp(stat_info.st_mtime)
+                                    except:
+                                        pub_date = datetime.datetime.now()
+                                
+                                if pub_date:
+                                    articles.append({
+                                        'year': pub_date.year,
+                                        'month': pub_date.month,
+                                        'day': pub_date.day
+                                    })
+                            except Exception as e:
+                                print(f"读取文章配置失败 {cat}/{article_dir}: {e}")
+    
+    return jsonify({'dates': articles})
+
+@app.route('/api/articles/filter')
+def filter_articles():
+    """根据日期筛选文章"""
+    year = request.args.get('year', type=int)
+    month = request.args.get('month', type=int)
+    day = request.args.get('day', type=int)
+    
+    articles = []
+    categories = []
+    
+    if os.path.exists(BLOG_DIR):
+        for cat in os.listdir(BLOG_DIR):
+            category_path = os.path.join(BLOG_DIR, cat)
+            if os.path.isdir(category_path):
+                categories.append(cat)
+        
+        category_order = {}
+        category_json_path = os.path.join(BLOG_DIR, 'category.json')
+        if os.path.exists(category_json_path):
+            try:
+                with open(category_json_path, 'r', encoding='utf-8') as f:
+                    category_order = json.load(f)
+            except Exception as e:
+                print(f"读取分类排序配置失败: {e}")
+        
+        def get_category_order(category_name):
+            return category_order.get(category_name, float('inf'))
+        
+        categories.sort(key=get_category_order)
+        
+        for cat in categories:
+            category_path = os.path.join(BLOG_DIR, cat)
+            
+            cat_order = {}
+            category_json_path = os.path.join(category_path, 'blog_category.json')
+            if os.path.exists(category_json_path):
+                try:
+                    with open(category_json_path, 'r', encoding='utf-8') as f:
+                        cat_order = json.load(f)
+                except Exception as e:
+                    print(f"读取分类文章排序配置失败 {cat}: {e}")
+            
+            for article_dir in os.listdir(category_path):
+                article_path = os.path.join(category_path, article_dir)
+                if os.path.isdir(article_path):
+                    config_path = os.path.join(article_path, 'config.json')
+                    if os.path.exists(config_path):
+                        try:
+                            with open(config_path, 'r', encoding='utf-8') as f:
+                                config = json.load(f)
+                            
+                            icon_path = os.path.join(article_path, 'icon.png')
+                            has_icon = os.path.exists(icon_path)
+                            
+                            pub_date = None
+                            if 'pub_date' in config:
+                                try:
+                                    pub_date = datetime.datetime.fromisoformat(config['pub_date'])
+                                except:
+                                    pub_date = datetime.datetime.now()
+                            else:
+                                blog_md_path = os.path.join(article_path, 'blog.md')
+                                try:
+                                    if os.path.exists(blog_md_path):
+                                        stat_info = os.stat(blog_md_path)
+                                        pub_date = datetime.datetime.fromtimestamp(stat_info.st_mtime)
+                                    else:
+                                        stat_info = os.stat(article_path)
+                                        pub_date = datetime.datetime.fromtimestamp(stat_info.st_mtime)
+                                except:
+                                    pub_date = datetime.datetime.now()
+                            
+                            should_include = True
+                            if year and pub_date:
+                                if pub_date.year != year:
+                                    should_include = False
+                                elif month and pub_date.month != month:
+                                    should_include = False
+                                elif day and pub_date.day != day:
+                                    should_include = False
+                            
+                            if should_include and pub_date:
+                                articles.append({
+                                    'id': article_dir,
+                                    'category': cat,
+                                    'title': config.get('title', '无标题'),
+                                    'small_title': config.get('small_title', '无简介'),
+                                    'has_icon': has_icon,
+                                    'order': cat_order.get(article_dir, float('inf')),
+                                    'category_order': get_category_order(cat),
+                                    'pub_date': pub_date.strftime('%Y-%m-%d') if pub_date else ''
+                                })
+                        except Exception as e:
+                            print(f"读取文章配置失败 {cat}/{article_dir}: {e}")
+    
+    def get_pub_date_order(article):
+        pub_date = article.get('pub_date')
+        if not pub_date:
+            return ''
+        return pub_date
+    
+    articles.sort(key=get_pub_date_order, reverse=True)
+    
+    return jsonify({'articles': articles})
 
 @app.route('/blog')
 @app.route('/blog/<category>')
@@ -878,6 +1051,19 @@ def css_all_files(filename):
         response.headers['Expires'] = '0'
     return response
 
+@app.route('/js/read/comment.js')
+def comment_js_file():
+    """评论JS文件访问控制"""
+    if CLOSE_COMMENT:
+        abort(404)
+    
+    response = send_from_directory('js/read', 'comment.js')
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    response.headers['Content-Type'] = 'application/javascript'
+    return response
+
 @app.route('/js/<path:filename>')
 def js_files(filename):
     response = send_from_directory('js', filename)
@@ -1041,6 +1227,10 @@ def mask_email(email):
 @app.route('/api/comment', methods=['POST'])
 def api_comment():
     """提交评论接口 - 纯匿名评论"""
+    # 检查评论功能是否关闭
+    if CLOSE_COMMENT:
+        return jsonify({'success': False, 'message': '评论功能已关闭'}), 404
+    
     try:
         def is_single_punctuation(text):
             if not text or len(text) != 1:
@@ -1109,6 +1299,10 @@ def api_comment():
 @app.route('/api/comments/<path:article_id>', methods=['GET'])
 def api_get_comments(article_id):
     """获取文章评论"""
+    # 检查评论功能是否关闭
+    if CLOSE_COMMENT:
+        return jsonify({'success': False, 'message': '评论功能已关闭'}), 404
+    
     try:
         db_path = os.path.join(os.path.dirname(__file__), 'instance', 'comment.db')
         conn = sqlite3.connect(db_path)
@@ -1196,7 +1390,7 @@ def read_article(category, article_id):
     except Exception as e:
         print(f"获取评论失败: {e}")
     
-    return render_template('read.html', article_id=f"{category}/{article_id}", comments=comments)
+    return render_template('read.html', article_id=f"{category}/{article_id}", comments=comments, close_comment=CLOSE_COMMENT)
 
 # 初始化数据库
 init_db()

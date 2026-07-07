@@ -95,10 +95,11 @@
                 
             </div>
             
+            {% if not close_comment %}
             <!-- 评论区 -->
             <div class="comment-section">
                 <h3 class="comment-title">评论区</h3>
-                
+
                 <!-- 评论输入区域 -->
                 <div id="comment-input-area" class="comment-input-area">
                     <form id="comment-form" method="POST" action="/api/comment">
@@ -113,12 +114,13 @@
                         </div>
                     </form>
                 </div>
-                
+
                 <!-- 评论列表区域 -->
                 <div class="comment-list" id="comment-list">
                     <!-- 评论将通过后端动态生成 -->
                 </div>
             </div>
+            {% endif %}
         </div>
     </div>
     
@@ -130,6 +132,10 @@
     <script src="/js/read/read.js"></script>
     <script src="/js/security/external-link-warning.js"></script>
     <script src="/js/read/telemetry.js"></script>
+    {% if not close_comment %}
+    <link rel="stylesheet" href="/css/all/smalldialog.css">
+    <script src="/js/all/showsmalldialog.js"></script>
     <script src="/js/read/comment.js"></script>
+    {% endif %}
 </body>
 </html>
