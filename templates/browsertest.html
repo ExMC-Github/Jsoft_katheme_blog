@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>浏览器测试 - manyJ's Blog</title>
+    <link rel="icon" href="/css/all/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/css/all/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <h1>浏览器测试</h1>
+    <p>当前IP：{{ client_ip }}</p>
+    <p>当前UserAgent：{{ user_agent }}</p>
+    <p>请求时间：{{ request_time }}</p>
+    <p id="js-support">是否支持JavaScript：否</p>
+    <p id="dark-mode">当前是否为暗黑模式：当前环境不支持js</p>
+
+    <script>
+        document.getElementById('js-support').textContent = '是否支持JavaScript：是';
+
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.getElementById('dark-mode').textContent = '当前是否为暗黑模式：是';
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+            document.getElementById('dark-mode').textContent = '当前是否为暗黑模式：否';
+        } else {
+            document.getElementById('dark-mode').textContent = '当前是否为暗黑模式：无法检测';
+        }
+    </script>
+</body>
+</html>

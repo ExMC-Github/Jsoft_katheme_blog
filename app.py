@@ -1392,6 +1392,19 @@ def read_article(category, article_id):
     
     return render_template('read.html', article_id=f"{category}/{article_id}", comments=comments, close_comment=CLOSE_COMMENT)
 
+@app.route('/browsertest')
+def browsertest():
+    """浏览器测试页面"""
+    # 获取客户端信息
+    client_ip = get_real_client_ip()
+    user_agent = request.headers.get('User-Agent', '未知')
+    request_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    return render_template('browsertest.html',
+        client_ip=client_ip,
+        user_agent=user_agent,
+        request_time=request_time)
+
 # 初始化数据库
 init_db()
 
