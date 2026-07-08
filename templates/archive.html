@@ -5,7 +5,7 @@
     <meta name="msvalidate.01" content="CDD1E0B3687442BDC279F8957E1B2A1B" />
     <meta name="Bugcool联盟-verification" content="b46ef60788">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>归档 - manyJ's Blog</title>
+    <title>归档 - {{ blogname }}</title>
     <link rel="stylesheet" href="/css/index/index.css">
     <link rel="stylesheet" href="/css/archive/archive.css">
     <link rel="stylesheet" href="/css/all/smalldialog.css">
@@ -18,7 +18,7 @@
         <div class="nav-container">
             <div class="nav-logo">
                 <img src="/css/all/favicon.ico" alt="网站图标" class="nav-logo-icon">
-                <span class="nav-logo-text"><span class="logo-j">J</span>的个人博客</span>
+                <span class="nav-logo-text">{% if headerlightcount > 0 %}<span class="logo-j">{{ blognamestart[:headerlightcount] }}</span>{{ blognamestart[headerlightcount:] }}{% else %}{{ blognamestart }}{% endif %}</span>
             </div>
             <nav class="nav-menu">
                 <a href="/" class="nav-link" id="nav-home">首页</a>

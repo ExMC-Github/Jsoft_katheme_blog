@@ -247,20 +247,31 @@ def get_blog_settings():
     return default_settings
 
 # 读取博客配置
-def load_close_comment_config():
-    """读取 close_comment 配置项"""
+def load_blog_settings():
+    """读取博客配置项"""
     settings_path = os.path.join(os.path.dirname(__file__), 'blogsettings.json')
     try:
         if os.path.exists(settings_path):
             with open(settings_path, 'r', encoding='utf-8') as f:
                 settings = json.load(f)
-                return settings.get('close_comment', False)
+                return {
+                    'close_comment': settings.get('close_comment', False),
+                    'blogname': settings.get('blogname', '请在blogsettings.json中设置博客名称'),
+                    'blognamestart': settings.get('blognamestart', '请在blogsettings.json中设置博客名称'),
+                    'headerlightcount': settings.get('headerlightcount', 1)
+                }
     except Exception as e:
-        print(f"读取评论关闭配置失败: {e}")
-    return False
+        print(f"读取博客配置失败: {e}")
+    return {
+        'close_comment': False,
+        'blogname': '请在blogsettings.json中设置博客名称',
+        'blognamestart': '请在blogsettings.json中设置博客名称',
+        'headerlightcount': 1
+    }
 
-# 全局变量：是否关闭评论功能
-CLOSE_COMMENT = load_close_comment_config()
+# 全局变量：博客配置
+BLOG_SETTINGS = load_blog_settings()
+CLOSE_COMMENT = BLOG_SETTINGS['close_comment']
 
 # 博客文章目录
 BLOG_DIR = os.path.join(os.path.dirname(__file__), 'blogs')
@@ -431,7 +442,11 @@ def shutdown_rss_cache():
 def index():
     """首页 - 显示文章列表，这个skip_welcome不要改成False，懒得移除了就这么补吧，啊啊啊啊啊啊啊啊啊"""
     settings = get_blog_settings()
-    return render_template('index.html', skip_welcome=True, blogname=settings['blogname'])
+    return render_template('index.html', 
+                          skip_welcome=True, 
+                          blogname=settings['blogname'],
+                          blognamestart=settings['blognamestart'],
+                          headerlightcount=settings['headerlightcount'])
 
 @app.route('/friendly_links.json')
 def friendly_links():
@@ -452,7 +467,11 @@ def friendly_links():
 @app.route('/archive')
 def archive():
     """归档页面"""
-    return render_template('archive.html')
+    settings = get_blog_settings()
+    return render_template('archive.html',
+                          blogname=settings['blogname'],
+                          blognamestart=settings['blognamestart'],
+                          headerlightcount=settings['headerlightcount'])
 
 @app.route('/api/articles/dates')
 def get_articles_dates():
@@ -1390,7 +1409,12 @@ def read_article(category, article_id):
     except Exception as e:
         print(f"获取评论失败: {e}")
     
-    return render_template('read.html', article_id=f"{category}/{article_id}", comments=comments, close_comment=CLOSE_COMMENT)
+    settings = get_blog_settings()
+    return render_template('read.html', 
+                          article_id=f"{category}/{article_id}", 
+                          comments=comments, 
+                          close_comment=CLOSE_COMMENT,
+                          blogname=settings['blogname'])
 
 @app.route('/browsertest')
 def browsertest():
