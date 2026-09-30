@@ -2,5 +2,7 @@
     "blogname": "请在blogsettings.json中设置博客名称",
     "blognamestart": "请在blogsettings.json中设置博客名称",
     "headerlightcount": 2,
-    "close_comment": false
+    "close_comment": false,
+    "bugcool_verification": true,
+    "bugcool_verification_content": "b46ef60788"
 }
