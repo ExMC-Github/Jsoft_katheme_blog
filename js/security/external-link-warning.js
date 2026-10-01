@@ -215,7 +215,7 @@
     // 从后端获取友链数据
     async function loadFriendlyDomains() {
         try {
-            const response = await fetch('/friendly_links.json');
+            const response = await fetch('/api/friendly_links');
             const friendlyLinks = await response.json();
             
             if (Array.isArray(friendlyLinks)) {

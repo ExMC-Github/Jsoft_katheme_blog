@@ -262,7 +262,7 @@ async function loadArticleContent() {
     }
     
     try {
-        const response = await fetch(`/read/${category}/${articleId}/content`);
+        const response = await fetch(`/api/articles/content/${category}/${articleId}`);
         const data = await response.json();
         
         if (data.error) {
@@ -300,6 +300,15 @@ async function loadArticleContent() {
         // 重新设计代码块布局并应用语法高亮
         redesignCodeBlocks();
         applySyntaxHighlighting();
+        
+        // 初始化文章图片预览
+        initImagePreview();
+
+        // 初始化自定义音频播放器
+        initCustomAudioPlayers();
+
+        // 初始化附件查看信息按钮
+        initAttachmentInfoButtons();
         
         // 设置复制事件监听器
         document.getElementById('articleContent').oncopy = handleCopyEvent;
@@ -342,11 +351,14 @@ function handleCopyEvent(event) {
             second: '2-digit'
         });
         
-        // 获取当前文章的分类和ID
-        const { category, articleId } = getArticleInfo();
+        // 作者名称（读取自 blogsettings.json 的 author_name，由后端注入到 window.AUTHOR_NAME）
+        const authorName = (window.AUTHOR_NAME || '').trim() || '作者';
+        
+        // 原文链接：自动取当前页面 URL（去掉查询串与锚点）
+        const articleUrl = window.location.origin + window.location.pathname;
         
         // 构建带版权信息的文本
-        const copyrightText = `\n------\n博客内容由manyJ版权所有\n原文链接：https://blog.jsoftstudio.top/read/${category}/${articleId}\n采用CC BY-NC-SA 4.0许可协议\n复制时间：${timeString}`;
+        const copyrightText = `\n------\n博客内容由${authorName}版权所有\n原文链接：${articleUrl}\n采用CC BY-NC-SA 4.0许可协议\n复制时间：${timeString}`;
         const modifiedText = selectedText + copyrightText;
         
         // 将修改后的文本写入剪贴板
@@ -595,7 +607,7 @@ function initSidebar() {
 
 // 加载目录标签页
 function loadDirectoryTabs() {
-    fetch('/blog')
+    fetch('/api/blog')
         .then(response => response.json())
         .then(data => {
             // 从文章数据中提取所有分类
@@ -822,7 +834,7 @@ let currentDirectoryCategory = '全部';
 async function loadArticleList() {
     try {
         const url = currentDirectoryCategory !== '全部' ? 
-            `/blog/${encodeURIComponent(currentDirectoryCategory)}` : '/blog';
+            `/api/blog/${encodeURIComponent(currentDirectoryCategory)}` : '/api/blog';
         const response = await fetch(url);
         const data = await response.json();
         
@@ -883,7 +895,7 @@ function renderArticleList(articles) {
         
         // 文章图标
         const iconHtml = article.has_icon ? 
-            `<img src="/read/${article.category}/${article.id}/icon" alt="${article.title}" class="article-icon">` :
+            `<img src="/api/articles/icon/${article.category}/${article.id}" alt="${article.title}" class="article-icon">` :
             `<div class="article-icon" style="background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; color: #999; font-size: 12px;">无图</div>`;
         
         articleItem.innerHTML = `
@@ -1187,4 +1199,780 @@ function addDragToCollapsedButton(button) {
 document.addEventListener('DOMContentLoaded', () => {
     loadArticleContent();
     initSidebar();
+    initImagePreviewModal();
 });
+
+
+// ==================== 图片预览功能 ====================
+
+// 文章图片加载失败时的占位图
+const ARTICLE_IMAGE_FALLBACK = '/css/all/notfound.png';
+
+// 图片预览缩放和拖动状态
+let imagePreviewScale = 1;          // 当前缩放比例
+let imagePreviewInitialScale = 1;   // 初始缩放比例（最小值）
+let imagePreviewOffsetX = 0;        // 水平偏移
+let imagePreviewOffsetY = 0;        // 垂直偏移
+let imagePreviewDragging = false;   // 是否正在拖动
+let imagePreviewDragStartX = 0;     // 拖动起始 X
+let imagePreviewDragStartY = 0;     // 拖动起始 Y
+let imagePreviewDragOffsetX = 0;    // 拖动起始时的水平偏移
+let imagePreviewDragOffsetY = 0;    // 拖动起始时的垂直偏移
+let imagePreviewScaleHintTimer = null; // 缩放提示隐藏定时器
+let imagePreviewWasDragged = false; // 是否发生过拖动移动（用于阻止 click 关闭）
+let imagePreviewPinching = false;   // 是否正在双指缩放
+let imagePreviewPinchStartDist = 0; // 双指缩放起始距离
+let imagePreviewPinchStartScale = 0; // 双指缩放起始时的缩放比例
+let imagePreviewPinchStartOffsetX = 0; // 双指缩放起始时的水平偏移
+let imagePreviewPinchStartOffsetY = 0; // 双指缩放起始时的垂直偏移
+
+// ==================== 自定义音频播放器 ====================
+
+const AUDIO_PLAY_ICON_SVG = '<svg class="custom-audio-icon-play" width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg"><path d="M3 2 L11 7 L3 12 Z" fill="currentColor"/></svg>';
+const AUDIO_PAUSE_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="8" y="2" width="3" height="10" rx="0.5" fill="currentColor"/></svg>';
+
+function formatAudioTime(seconds) {
+    if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) return '0:00';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+// 为文章内所有 audio 元素创建自定义播放器
+function initCustomAudioPlayers() {
+    const articleContent = document.getElementById('articleContent');
+    const aiSummaryContent = document.getElementById('aiSummaryContent');
+    if (!articleContent) return;
+
+    const audioList = [];
+    articleContent.querySelectorAll('audio').forEach(a => audioList.push(a));
+    if (aiSummaryContent) {
+        aiSummaryContent.querySelectorAll('audio').forEach(a => audioList.push(a));
+    }
+
+    audioList.forEach(audio => {
+        if (audio.dataset.customPlayerBound === '1') return;
+        audio.dataset.customPlayerBound = '1';
+        wrapAudioWithCustomPlayer(audio);
+    });
+}
+
+function wrapAudioWithCustomPlayer(audio) {
+    // 移除原生控件并启用元数据预加载
+    audio.removeAttribute('controls');
+    audio.preload = 'metadata';
+
+    const player = document.createElement('div');
+    player.className = 'custom-audio-player';
+
+    const playBtn = document.createElement('button');
+    playBtn.type = 'button';
+    playBtn.className = 'custom-audio-play';
+    playBtn.setAttribute('aria-label', '播放');
+    playBtn.innerHTML = AUDIO_PLAY_ICON_SVG;
+
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'custom-audio-progress';
+    progressContainer.setAttribute('role', 'slider');
+    progressContainer.setAttribute('aria-label', '音频进度');
+    progressContainer.setAttribute('tabindex', '0');
+    progressContainer.setAttribute('aria-valuemin', '0');
+    progressContainer.setAttribute('aria-valuemax', '100');
+    progressContainer.setAttribute('aria-valuenow', '0');
+
+    const progressBar = document.createElement('div');
+    progressBar.className = 'custom-audio-progress-bar';
+    progressContainer.appendChild(progressBar);
+
+    // 可拖动的黑色圆点
+    const progressHandle = document.createElement('div');
+    progressHandle.className = 'custom-audio-progress-handle';
+    progressContainer.appendChild(progressHandle);
+
+    const timeDisplay = document.createElement('span');
+    timeDisplay.className = 'custom-audio-time';
+    timeDisplay.textContent = '0:00 / 0:00';
+
+    player.appendChild(playBtn);
+    player.appendChild(progressContainer);
+    player.appendChild(timeDisplay);
+
+    // 把播放器插入到 audio 之前，再把 audio 移进播放器内（隐藏但保留功能）
+    audio.parentNode.insertBefore(player, audio);
+    player.appendChild(audio);
+
+    // 拖动状态：拖动期间 timeupdate 不应覆盖视觉，避免跳回
+    let isDragging = false;
+
+    function applyProgressVisual(percent) {
+        const clamped = Math.max(0, Math.min(1, percent));
+        const percentValue = clamped * 100;
+        progressBar.style.width = percentValue + '%';
+        progressHandle.style.left = percentValue + '%';
+        progressContainer.setAttribute('aria-valuenow', String(Math.round(percentValue)));
+    }
+
+    function updateTimeAndProgress() {
+        if (!isFinite(audio.duration) || audio.duration <= 0) return;
+        applyProgressVisual(audio.currentTime / audio.duration);
+        timeDisplay.textContent = formatAudioTime(audio.currentTime) + ' / ' + formatAudioTime(audio.duration);
+    }
+
+    // 共用：把百分比转换为 currentTime 并立即更新视觉
+    function seekToPercent(percent) {
+        const clamped = Math.max(0, Math.min(1, percent));
+        if (isFinite(audio.duration) && audio.duration > 0) {
+            audio.currentTime = clamped * audio.duration;
+        }
+        applyProgressVisual(clamped);
+    }
+
+    function clientXToPercent(clientX) {
+        const rect = progressContainer.getBoundingClientRect();
+        return (clientX - rect.left) / rect.width;
+    }
+
+    playBtn.addEventListener('click', () => {
+        if (audio.paused) {
+            const p = audio.play();
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+        } else {
+            audio.pause();
+        }
+    });
+
+    audio.addEventListener('play', () => {
+        playBtn.innerHTML = AUDIO_PAUSE_ICON_SVG;
+        playBtn.setAttribute('aria-label', '暂停');
+    });
+    audio.addEventListener('pause', () => {
+        playBtn.innerHTML = AUDIO_PLAY_ICON_SVG;
+        playBtn.setAttribute('aria-label', '播放');
+    });
+    audio.addEventListener('ended', () => {
+        playBtn.innerHTML = AUDIO_PLAY_ICON_SVG;
+        playBtn.setAttribute('aria-label', '播放');
+    });
+
+    audio.addEventListener('loadedmetadata', () => {
+        timeDisplay.textContent = '0:00 / ' + formatAudioTime(audio.duration);
+    });
+
+    audio.addEventListener('timeupdate', () => {
+        // 拖动期间跳过 timeupdate，避免圆点跳回实际播放位置（与拖动目标不一致）
+        if (isDragging) return;
+        updateTimeAndProgress();
+    });
+
+    audio.addEventListener('error', () => {
+        timeDisplay.textContent = '加载失败';
+        playBtn.disabled = true;
+    });
+
+    // 点击进度条（圆点外的区域）跳转
+    progressContainer.addEventListener('click', (e) => {
+        if (e.target === progressHandle) return;
+        seekToPercent(clientXToPercent(e.clientX));
+    });
+
+    // 圆点拖动：使用 mouse + touch events
+    // 不用 pointer events 是因为 setPointerCapture 会让浏览器抑制 mousemove，
+    // 同时 pointer events 在部分移动端浏览器也不稳定
+
+    // 鼠标拖动：mousedown 在圆点，mousemove/mouseup 在 document，
+    // 这样鼠标移到圆点外仍能继续接收事件
+    progressHandle.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        progressHandle.classList.add('dragging');
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        seekToPercent(clientXToPercent(e.clientX));
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        progressHandle.classList.remove('dragging');
+        // 拖动结束后把视觉同步到实际的 currentTime（可能与拖动目标有微小差异）
+        updateTimeAndProgress();
+    });
+
+    // 触摸拖动：CSS 上 touch-action: none 阻止浏览器把触摸解释为滚动/缩放
+    // 这里不需要 preventDefault，让 click 事件在轻触时仍能正常触发
+    progressHandle.addEventListener('touchstart', () => {
+        isDragging = true;
+        progressHandle.classList.add('dragging');
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        seekToPercent(clientXToPercent(e.touches[0].clientX));
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        progressHandle.classList.remove('dragging');
+        updateTimeAndProgress();
+    });
+
+    document.addEventListener('touchcancel', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        progressHandle.classList.remove('dragging');
+        updateTimeAndProgress();
+    });
+
+    // 键盘控制进度（左右键步进 5s，Shift 加速到 10s）
+    progressContainer.addEventListener('keydown', (e) => {
+        if (!isFinite(audio.duration) || audio.duration <= 0) return;
+        const step = e.shiftKey ? 10 : 5;
+        if (e.key === 'ArrowLeft') {
+            audio.currentTime = Math.max(0, audio.currentTime - step);
+            e.preventDefault();
+        } else if (e.key === 'ArrowRight') {
+            audio.currentTime = Math.min(audio.duration, audio.currentTime + step);
+            e.preventDefault();
+        } else if (e.key === ' ' || e.key === 'Enter') {
+            playBtn.click();
+            e.preventDefault();
+        }
+    });
+}
+
+// 为文章内所有图片绑定点击预览与加载失败占位
+function initImagePreview() {
+    const articleContent = document.getElementById('articleContent');
+    const aiSummaryContent = document.getElementById('aiSummaryContent');
+    if (!articleContent) return;
+
+    const imageList = [];
+    articleContent.querySelectorAll('img').forEach(img => imageList.push(img));
+    if (aiSummaryContent) {
+        aiSummaryContent.querySelectorAll('img').forEach(img => imageList.push(img));
+    }
+
+    imageList.forEach(img => {
+        // 避免重复绑定
+        if (img.dataset.previewBound === '1') return;
+        img.dataset.previewBound = '1';
+        img.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openImagePreview(img.currentSrc || img.src, img.alt);
+        });
+        // 图片加载失败时显示占位图，防止与占位图自身形成循环
+        img.addEventListener('error', () => {
+            if (img.dataset.fallbackApplied === '1') return;
+            if (img.src && img.src.includes(ARTICLE_IMAGE_FALLBACK)) return;
+            img.dataset.fallbackApplied = '1';
+            img.src = ARTICLE_IMAGE_FALLBACK;
+        });
+    });
+}
+
+// 打开图片预览
+function openImagePreview(src, alt) {
+    const modal = document.getElementById('imagePreviewModal');
+    const previewImg = document.getElementById('imagePreviewImg');
+    if (!modal || !previewImg || !src) return;
+
+    // 重置缩放和拖动状态
+    imagePreviewScale = 1;
+    imagePreviewInitialScale = 1;
+    imagePreviewOffsetX = 0;
+    imagePreviewOffsetY = 0;
+    imagePreviewDragging = false;
+    imagePreviewPinching = false;
+    previewImg.classList.remove('draggable', 'dragging');
+    updateImagePreviewTransform(previewImg);
+
+    previewImg.src = src;
+    previewImg.alt = alt || '图片预览';
+    // 重置占位图标志，让本次新 src 的 error 事件能正常触发
+    delete previewImg.dataset.fallbackApplied;
+
+    // 禁用背景滚动（body 和文章滚动容器）
+    document.body.style.overflow = 'hidden';
+    const centerSection = document.getElementById('centerSection');
+    if (centerSection) {
+        centerSection.style.overflow = 'hidden';
+    }
+
+    // 先设为 flex 触发 display 切换，再下一帧添加 show 触发过渡
+    modal.style.display = 'flex';
+    // 强制重排，确保 opacity 过渡生效
+    void modal.offsetHeight;
+    modal.classList.remove('hiding');
+    modal.classList.add('show');
+}
+
+// 关闭图片预览
+function closeImagePreview() {
+    const modal = document.getElementById('imagePreviewModal');
+    if (!modal || !modal.classList.contains('show')) return;
+
+    // 清理缩放提示定时器
+    if (imagePreviewScaleHintTimer) {
+        clearTimeout(imagePreviewScaleHintTimer);
+        imagePreviewScaleHintTimer = null;
+    }
+    hideScaleHint();
+
+    modal.classList.add('hiding');
+    modal.classList.remove('show');
+
+    setTimeout(() => {
+        // 若在关闭动画期间用户重新打开了预览，则不要清理
+        if (!modal.classList.contains('hiding')) return;
+
+        modal.style.display = 'none';
+        modal.classList.remove('hiding');
+        // 清空 src 释放内存
+        const previewImg = document.getElementById('imagePreviewImg');
+        if (previewImg) {
+            previewImg.src = '';
+            previewImg.classList.remove('draggable', 'dragging');
+        }
+        // 恢复背景滚动
+        document.body.style.overflow = '';
+        const centerSection = document.getElementById('centerSection');
+        if (centerSection) {
+            centerSection.style.overflow = '';
+        }
+        // 重置状态
+        imagePreviewScale = 1;
+        imagePreviewOffsetX = 0;
+        imagePreviewOffsetY = 0;
+        imagePreviewDragging = false;
+        imagePreviewPinching = false;
+    }, 300);
+}
+
+// 初始化图片预览模态框的关闭交互
+function initImagePreviewModal() {
+    const modal = document.getElementById('imagePreviewModal');
+    const closeBtn = document.getElementById('imagePreviewClose');
+    const previewImg = document.getElementById('imagePreviewImg');
+    if (!modal) return;
+
+    // 预览图自身加载失败时也显示占位图
+    if (previewImg) {
+        previewImg.addEventListener('error', () => {
+            if (previewImg.dataset.fallbackApplied === '1') return;
+            if (previewImg.src && previewImg.src.includes(ARTICLE_IMAGE_FALLBACK)) return;
+            previewImg.dataset.fallbackApplied = '1';
+            previewImg.src = ARTICLE_IMAGE_FALLBACK;
+        });
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeImagePreview();
+        });
+    }
+
+    // 点击遮罩空白处或图片本身关闭（点击关闭按钮已通过 stopPropagation 阻止冒泡）
+    modal.addEventListener('click', (e) => {
+        // 如果刚刚拖动过，阻止关闭
+        if (imagePreviewWasDragged) {
+            imagePreviewWasDragged = false;
+            return;
+        }
+        if (imagePreviewDragging) return; // 拖动时不关闭
+        if (e.target === modal || e.target === previewImg) {
+            closeImagePreview();
+        }
+    });
+
+    // ESC 键关闭
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('show')) {
+            closeImagePreview();
+        }
+    });
+
+    // 鼠标滚轮缩放（支持普通滚轮和 Ctrl+滚轮）
+    modal.addEventListener('wheel', (e) => {
+        if (!modal.classList.contains('show') || !previewImg) return;
+        e.preventDefault();
+
+        // 计算缩放因子，每次滚动改变 10%
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const newScale = Math.max(imagePreviewInitialScale, imagePreviewScale + delta);
+
+        // 如果缩放比例变化
+        if (newScale !== imagePreviewScale) {
+            // 如果是缩小到初始大小，重置位置并取消拖动
+            if (newScale === imagePreviewInitialScale) {
+                imagePreviewOffsetX = 0;
+                imagePreviewOffsetY = 0;
+                previewImg.classList.remove('draggable');
+            } else {
+                // 放大时允许拖动
+                previewImg.classList.add('draggable');
+            }
+
+            imagePreviewScale = newScale;
+            updateImagePreviewTransform(previewImg);
+            showScaleHint(newScale);
+        }
+    }, { passive: false });
+
+    // 图片拖动开始（在模态框上监听，手机端整个区域都可操作）
+    if (previewImg) {
+        // 鼠标拖动（只在图片上）
+        previewImg.addEventListener('mousedown', (e) => {
+            if (!previewImg.classList.contains('draggable')) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            imagePreviewDragging = true;
+            imagePreviewWasDragged = false; // 重置拖动标志
+            imagePreviewDragStartX = e.clientX;
+            imagePreviewDragStartY = e.clientY;
+            imagePreviewDragOffsetX = imagePreviewOffsetX;
+            imagePreviewDragOffsetY = imagePreviewOffsetY;
+            previewImg.classList.add('dragging');
+        });
+    }
+
+    // 触摸事件绑定到模态框（整个区域都可操作）
+    modal.addEventListener('touchstart', (e) => {
+        // 双指缩放开始（无论是否已放大都可以缩放）
+        if (e.touches.length === 2) {
+            imagePreviewPinching = true;
+            imagePreviewPinchStartDist = getPinchDistance(e.touches);
+            imagePreviewPinchStartScale = imagePreviewScale;
+            imagePreviewPinchStartOffsetX = imagePreviewOffsetX;
+            imagePreviewPinchStartOffsetY = imagePreviewOffsetY;
+            imagePreviewWasDragged = true; // 阻止后续 click 关闭
+            return;
+        }
+
+        // 单指拖动（仅在放大后可拖动）
+        if (e.touches.length === 1 && previewImg && previewImg.classList.contains('draggable')) {
+            imagePreviewDragging = true;
+            imagePreviewWasDragged = false;
+            const touch = e.touches[0];
+            imagePreviewDragStartX = touch.clientX;
+            imagePreviewDragStartY = touch.clientY;
+            imagePreviewDragOffsetX = imagePreviewOffsetX;
+            imagePreviewDragOffsetY = imagePreviewOffsetY;
+            previewImg.classList.add('dragging');
+        }
+    }, { passive: true });
+
+    // 计算双指间距
+    function getPinchDistance(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // 图片拖动移动（在 document 上监听）
+    // 鼠标移动
+    document.addEventListener('mousemove', (e) => {
+        if (!imagePreviewDragging || !previewImg) return;
+
+        const dx = e.clientX - imagePreviewDragStartX;
+        const dy = e.clientY - imagePreviewDragStartY;
+        // 如果发生了移动，标记 wasDragged
+        if (dx !== 0 || dy !== 0) {
+            imagePreviewWasDragged = true;
+        }
+        imagePreviewOffsetX = imagePreviewDragOffsetX + dx;
+        imagePreviewOffsetY = imagePreviewDragOffsetY + dy;
+        updateImagePreviewTransform(previewImg);
+    });
+
+    // 触摸移动
+    document.addEventListener('touchmove', (e) => {
+        if (!previewImg) return;
+
+        // 双指缩放
+        if (imagePreviewPinching && e.touches.length === 2) {
+            const currentDist = getPinchDistance(e.touches);
+            const scaleRatio = currentDist / imagePreviewPinchStartDist;
+            let newScale = imagePreviewPinchStartScale * scaleRatio;
+
+            // 如果缩小到初始大小（使用阈值避免浮点精度问题）
+            if (newScale <= imagePreviewInitialScale) {
+                newScale = imagePreviewInitialScale;
+                imagePreviewOffsetX = 0;
+                imagePreviewOffsetY = 0;
+                previewImg.classList.remove('draggable');
+            } else {
+                // 放大状态，随着 scale 变化按比例调整 offset（让图片以屏幕中心为基准缩放）
+                // offset 按相同比例调整（越小越接近中心）
+                imagePreviewOffsetX = imagePreviewPinchStartOffsetX * scaleRatio;
+                imagePreviewOffsetY = imagePreviewPinchStartOffsetY * scaleRatio;
+                previewImg.classList.add('draggable');
+            }
+
+            if (newScale !== imagePreviewScale) {
+                imagePreviewScale = newScale;
+                updateImagePreviewTransform(previewImg);
+                showScaleHint(newScale);
+            }
+            return;
+        }
+
+        // 单指拖动
+        if (!imagePreviewDragging) return;
+
+        const touch = e.touches[0];
+        const dx = touch.clientX - imagePreviewDragStartX;
+        const dy = touch.clientY - imagePreviewDragStartY;
+        if (dx !== 0 || dy !== 0) {
+            imagePreviewWasDragged = true;
+        }
+        imagePreviewOffsetX = imagePreviewDragOffsetX + dx;
+        imagePreviewOffsetY = imagePreviewDragOffsetY + dy;
+        updateImagePreviewTransform(previewImg);
+    }, { passive: true });
+
+    // 图片拖动结束（在 document 上监听）
+    // 鼠标结束
+    document.addEventListener('mouseup', () => {
+        if (!imagePreviewDragging || !previewImg) return;
+
+        imagePreviewDragging = false;
+        previewImg.classList.remove('dragging');
+    });
+
+    // 触摸结束
+    document.addEventListener('touchend', (e) => {
+        if (!previewImg) return;
+
+        // 双指缩放结束
+        if (imagePreviewPinching) {
+            imagePreviewPinching = false;
+            // 如果缩放后仍然大于初始大小，允许拖动
+            if (imagePreviewScale > imagePreviewInitialScale) {
+                previewImg.classList.add('draggable');
+            }
+            return;
+        }
+
+        // 单指拖动结束
+        if (!imagePreviewDragging) return;
+
+        imagePreviewDragging = false;
+        previewImg.classList.remove('dragging');
+    });
+
+    // 触摸取消
+    document.addEventListener('touchcancel', (e) => {
+        if (!previewImg) return;
+
+        // 双指缩放取消
+        if (imagePreviewPinching) {
+            imagePreviewPinching = false;
+            if (imagePreviewScale > imagePreviewInitialScale) {
+                previewImg.classList.add('draggable');
+            }
+            return;
+        }
+
+        // 单指拖动取消
+        if (!imagePreviewDragging) return;
+
+        imagePreviewDragging = false;
+        previewImg.classList.remove('dragging');
+    });
+}
+
+// 更新图片预览的 transform
+function updateImagePreviewTransform(img) {
+    if (!img) return;
+    // 当回到初始大小且偏移为0时，清除 transform 让 CSS flexbox 居中生效
+    if (imagePreviewScale === imagePreviewInitialScale && imagePreviewOffsetX === 0 && imagePreviewOffsetY === 0) {
+        img.style.transform = '';
+    } else {
+        img.style.transform = `translate(${imagePreviewOffsetX}px, ${imagePreviewOffsetY}px) scale(${imagePreviewScale})`;
+    }
+}
+
+// 显示缩放提示
+function showScaleHint(scale) {
+    const hint = document.getElementById('imagePreviewScaleHint');
+    if (!hint) return;
+
+    hint.textContent = Math.round(scale * 100) + '%';
+    hint.classList.add('show');
+
+    // 清理旧的定时器
+    if (imagePreviewScaleHintTimer) {
+        clearTimeout(imagePreviewScaleHintTimer);
+    }
+
+    // 1.5 秒后隐藏
+    imagePreviewScaleHintTimer = setTimeout(() => {
+        hideScaleHint();
+    }, 1500);
+}
+
+// 隐藏缩放提示
+function hideScaleHint() {
+    const hint = document.getElementById('imagePreviewScaleHint');
+    if (hint) {
+        hint.classList.remove('show');
+    }
+}
+
+// ==================== 附件查看信息按钮 ====================
+
+// 格式化文件大小（B/KB/MB/GB）
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+}
+
+// 格式化 ISO8601 时间为本地友好格式
+function formatDateTime(isoString) {
+    const d = new Date(isoString);
+    return d.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+// 判断是否为本地资源
+function isLocalResource(url) {
+    try {
+        const resolved = new URL(url, location.href);
+        return resolved.origin === location.origin && resolved.pathname.startsWith('/res/');
+    } catch {
+        return false;
+    }
+}
+
+// 小对话框提示（关闭评论区时不加载 showsmalldialog.js，这里做存在性判断）
+function attachmentToast(message, type) {
+    if (typeof showSmallDialog === 'function') {
+        showSmallDialog(message, type);
+    }
+}
+
+// 查询 MD5 并轮询结果
+async function queryMD5(url, md5Element) {
+    const maxRetries = 30;
+    let retries = 0;
+
+    while (retries < maxRetries) {
+        try {
+            const encodedUrl = encodeURIComponent(url);
+            const res = await fetch(`/api/attachment/md5?url=${encodedUrl}`);
+            const data = await res.json();
+
+            if (data.status === 'done') {
+                attachmentToast('查询成功', 'success');
+                md5Element.textContent = data.md5;
+                return;
+            } else if (data.status === 'calculating') {
+                // 等待 1 秒后重试
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                retries++;
+            } else if (data.error) {
+                attachmentToast(data.error, 'error');
+                md5Element.textContent = '查询';
+                md5Element.className = 'md5-query-link';
+                return;
+            }
+        } catch (e) {
+            attachmentToast('查询失败', 'error');
+            md5Element.textContent = '查询';
+            md5Element.className = 'md5-query-link';
+            return;
+        }
+    }
+
+    attachmentToast('查询超时', 'error');
+    md5Element.textContent = '查询';
+    md5Element.className = 'md5-query-link';
+}
+
+// 初始化附件信息按钮
+async function initAttachmentInfoButtons() {
+    const articleContent = document.getElementById('articleContent');
+    const aiSummaryContent = document.getElementById('aiSummaryContent');
+    if (!articleContent) return;
+
+    const attachments = [];
+    articleContent.querySelectorAll('.download-attachment').forEach(a => attachments.push(a));
+    if (aiSummaryContent) {
+        aiSummaryContent.querySelectorAll('.download-attachment').forEach(a => attachments.push(a));
+    }
+
+    attachments.forEach(attachment => {
+        const infoButton = attachment.querySelector('.info-button');
+        const details = attachment.querySelector('.attachment-details');
+        if (!infoButton || !details) return;
+
+        // 防止重复绑定
+        if (infoButton.dataset.infoBound === '1') return;
+        infoButton.dataset.infoBound = '1';
+
+        infoButton.addEventListener('click', async () => {
+            const isExpanded = !details.hidden;
+
+            if (isExpanded) {
+                // 收起
+                details.hidden = true;
+                infoButton.textContent = '查看信息';
+            } else {
+                // 展开
+                details.hidden = false;
+                infoButton.textContent = '收起信息';
+
+                const url = infoButton.dataset.url;
+                if (!isLocalResource(url)) {
+                    details.innerHTML = '<span style="color: rgba(255,255,255,0.7);">非本地资源无法查看</span>';
+                    return;
+                }
+
+                // 调用后端 API
+                try {
+                    const encodedUrl = encodeURIComponent(url);
+                    const res = await fetch(`/api/attachment/info?url=${encodedUrl}`);
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        details.innerHTML = `<span style="color: rgba(255,255,255,0.7);">${data.error || '获取信息失败'}</span>`;
+                        return;
+                    }
+
+                    // 渲染四行信息
+                    details.innerHTML = `
+                        <span>创建日期：${formatDateTime(data.created_at)}</span>
+                        <span>修改日期：${formatDateTime(data.modified_at)}</span>
+                        <span>大小：${formatFileSize(data.size)}</span>
+                        <span>MD5：<a href="#" class="md5-query-link">查询</a></span>
+                    `;
+
+                    // 绑定 MD5 链接点击事件
+                    const md5Link = details.querySelector('.md5-query-link');
+                    if (md5Link) {
+                        md5Link.addEventListener('click', async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+
+                            // 创建一个 span 来显示 MD5 值（CSS 设置 display: inline 不换行）
+                            const md5Span = document.createElement('span');
+                            md5Span.className = 'md5-value';
+                            md5Span.textContent = '查询中...';
+                            md5Link.replaceWith(md5Span);
+                            await queryMD5(url, md5Span);
+                        });
+                    }
+                } catch (err) {
+                    details.innerHTML = '<span style="color: rgba(255,255,255,0.7);">获取信息失败</span>';
+                }
+            }
+        });
+    });
+}

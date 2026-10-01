@@ -14,7 +14,7 @@
 %C56D61%像这样%NONE%可以重置颜色
 
 ## 附件
-[dltag:photoget_client.exe](https://static.jsoftstudio.top/photoget_client.exe)
+[dltag:tip.txt](/res/tip.txt)
 
 ## Python 代码
 ```python

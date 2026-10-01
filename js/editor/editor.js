@@ -66,19 +66,57 @@ class MarkdownEditor {
         
         // 处理特殊插入逻辑
         let newText;
-        if (text.includes('URL')) {
+        if (text === 'IMAGE') {
+            // 图片控制符插入
+            let imagePath = prompt('请输入图片路径:', '/res/image.png');
+            if (imagePath === null) return;
+
+            // 自动解码URL编码字符，避免被误判为控制符结束
+            try {
+                imagePath = decodeURIComponent(imagePath);
+            } catch (e) {
+                // 如果解码失败，保持原路径
+            }
+
+            const sizeInput = prompt('请输入图片大小（格式: 宽度,高度，如 100,50，留空则不设置）:', '');
+            let sizeParam = '';
+            if (sizeInput && sizeInput.trim()) {
+                sizeParam = `|s:${sizeInput.trim()}`;
+            }
+
+            newText = `%p f:${imagePath}${sizeParam}%`;
+        } else if (text === 'ROTATION') {
+            // 文字旋转控制符插入
+            const angle = prompt('请输入旋转角度（度）:', '45');
+            if (angle === null) return;
+
+            const textToRotate = selectedText || '旋转文字';
+            newText = `%r a:${angle}%${textToRotate}%NONE%`;
+        } else if (text === 'STROKE') {
+            // 描边控制符插入
+            const strokeWidth = prompt('请输入描边宽度（像素）:', '2');
+            if (strokeWidth === null) return;
+
+            const colorInput = prompt('请输入描边颜色（颜色代码如 R、G、B 或十六进制颜色码，留空则使用反色）:', '');
+            let colorParam = '';
+            if (colorInput && colorInput.trim()) {
+                colorParam = `|c:${colorInput.trim()}`;
+            }
+
+            const textToStroke = selectedText || '描边文字';
+            newText = `%f o:${strokeWidth}${colorParam}%${textToStroke}%NONE%`;
+        } else if (text === 'WEIGHT') {
+            // 文字粗细控制符插入
+            const weight = prompt('请输入文字粗细（如 normal、bold、100-900 数字）:', 'bold');
+            if (weight === null) return;
+
+            const textToWeight = selectedText || '粗细文字';
+            newText = `%c s:${weight}%${textToWeight}%NONE%`;
+        } else if (text.includes('URL')) {
             // 链接插入
             const url = prompt('请输入链接地址:', 'https://');
             if (url !== null) {
                 newText = text.replace('URL', url).replace('链接文字', selectedText || '链接文字');
-            } else {
-                return;
-            }
-        } else if (text.includes('图片URL')) {
-            // 图片插入
-            const url = prompt('请输入图片地址:', 'https://');
-            if (url !== null) {
-                newText = text.replace('图片URL', url).replace('图片描述', selectedText || '图片描述');
             } else {
                 return;
             }
@@ -312,9 +350,12 @@ class MarkdownEditor {
     }
 }
 
+// 全局编辑器实例
+let editorInstance = null;
+
 // 页面加载完成后初始化编辑器
 document.addEventListener('DOMContentLoaded', () => {
-    new MarkdownEditor();
+    editorInstance = new MarkdownEditor();
 });
 
 // 添加键盘快捷键支持
@@ -322,21 +363,24 @@ document.addEventListener('keydown', (e) => {
     // Ctrl+S 保存/下载
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        const editor = new MarkdownEditor();
-        editor.downloadContent();
+        if (editorInstance) {
+            editorInstance.downloadContent();
+        }
     }
     
     // Ctrl+D 清空
     if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
-        const editor = new MarkdownEditor();
-        editor.clearEditor();
+        if (editorInstance) {
+            editorInstance.clearEditor();
+        }
     }
     
     // Ctrl+C 复制
     if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !e.target.matches('textarea')) {
         e.preventDefault();
-        const editor = new MarkdownEditor();
-        editor.copyContent();
+        if (editorInstance) {
+            editorInstance.copyContent();
+        }
     }
 });

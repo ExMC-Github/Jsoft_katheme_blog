@@ -175,6 +175,8 @@ body::-webkit-scrollbar {
     font-size: 12px;
     cursor: pointer;
     transition: all 0.3s ease;
+    width: calc((100% - 5 * 8px) / 6);
+    text-align: center;
 }
 
 .tool-button:hover {

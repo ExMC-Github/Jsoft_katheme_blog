@@ -311,7 +311,7 @@ function renderArticles(articles) {
         };
         
         const iconHtml = article.has_icon 
-            ? `<img src="/read/${article.category}/${article.id}/icon" alt="${article.title}">` 
+            ? `<img src="/api/articles/icon/${article.category}/${article.id}" alt="${article.title}">` 
             : '<div class="default-icon">📄</div>';
         
         articleElement.innerHTML = `

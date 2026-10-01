@@ -284,7 +284,7 @@ function addDragScroll(container) {
 // 加载文章列表
 async function loadBlogList(category = null) {
     try {
-        const url = category ? `/blog/${encodeURIComponent(category)}` : '/blog';
+        const url = category ? `/api/blog/${encodeURIComponent(category)}` : '/api/blog';
         const response = await fetch(url);
         const data = await response.json();
         
@@ -303,7 +303,7 @@ async function loadBlogList(category = null) {
                     <div class="blog-item-content">
                         <div class="blog-icon">
                             ${article.has_icon ? 
-                                `<img src="/read/${article.category}/${article.id}/icon" alt="${article.title}" />` : 
+                                `<img src="/api/articles/icon/${article.category}/${article.id}" alt="${article.title}" />` : 
                                 '<div class="default-icon">📄</div>'
                             }
                         </div>
@@ -330,7 +330,7 @@ async function loadBlogList(category = null) {
 // 获取分类列表
 async function loadCategories() {
     try {
-        const response = await fetch('/blog');
+        const response = await fetch('/api/blog');
         const data = await response.json();
         
         categories = data.categories || [];
@@ -351,7 +351,7 @@ async function loadCategories() {
 // 加载友情链接
 async function loadFriendlyLinks() {
     try {
-        const response = await fetch('/friendly_links.json');
+        const response = await fetch('/api/friendly_links');
         const friendlyLinks = await response.json();
         
         const linksList = document.getElementById('friendlyLinksList');

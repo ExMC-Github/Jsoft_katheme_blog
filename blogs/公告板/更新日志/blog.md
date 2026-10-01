@@ -1,5 +1,30 @@
 # 更新日志
 
+## v2.1.9.22
+#### 更新日期：2026.10.1
+------
+- %R%新增%NONE%阅读页图片点击放大预览
+- %R%新增%NONE%音频组件样式
+- %R%新增%NONE%附件详情信息查看
+- %R%新增%NONE%阅读页图片放大预览中，可以使用鼠标滚轮(电脑端) 或 双指滑动(移动端) 缩放
+- %R%新增%NONE%阅读页图片放大预览中，如果进行了放大可以拖动改变位置
+- %12A7EB%优化%NONE%API接口，进行路由统一化
+    %808080%/friendly_links.json%NONE% -> /api/friendly_links
+
+    %808080%/blog%NONE% -> /api/blog
+
+    %808080%/read/category/article_id/content%NONE% -> /api/articles/content/category/article_id
+
+    %808080%/read/category/article_id/icon%NONE% -> /api/articles/icon/category/article_id
+
+- %R%新增%NONE%额外的富文本控制符
+    p：插入图片
+    r：文字旋转
+    c：文字粗细
+    f：文字描边
+
+- %R%新增%NONE%编辑器界面新富文本控制符对应的快捷按钮
+
 ## v2.1.8.18
 #### 更新日期：2026.7.7
 ------
