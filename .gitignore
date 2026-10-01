@@ -3,3 +3,4 @@
 .workbuddy/
 .venv/
 __pycache__/
+instance/
