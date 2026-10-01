@@ -258,7 +258,9 @@ def load_blog_settings():
                     'close_comment': settings.get('close_comment', False),
                     'blogname': settings.get('blogname', '请在blogsettings.json中设置博客名称'),
                     'blognamestart': settings.get('blognamestart', '请在blogsettings.json中设置博客名称'),
-                    'headerlightcount': settings.get('headerlightcount', 1)
+                    'headerlightcount': settings.get('headerlightcount', 1),
+                    'bugcool_verification': settings.get('bugcool_verification', True),
+                    'bugcool_verification_content': settings.get('bugcool_verification_content', 'b46ef60788')
                 }
     except Exception as e:
         print(f"读取博客配置失败: {e}")
@@ -266,12 +268,16 @@ def load_blog_settings():
         'close_comment': False,
         'blogname': '请在blogsettings.json中设置博客名称',
         'blognamestart': '请在blogsettings.json中设置博客名称',
-        'headerlightcount': 1
+        'headerlightcount': 1,
+        'bugcool_verification': True,
+        'bugcool_verification_content': 'b46ef60788'
     }
 
 # 全局变量：博客配置
 BLOG_SETTINGS = load_blog_settings()
 CLOSE_COMMENT = BLOG_SETTINGS['close_comment']
+BUGCOOL_VERIFICATION = BLOG_SETTINGS['bugcool_verification']
+BUGCOOL_VERIFICATION_CONTENT = BLOG_SETTINGS['bugcool_verification_content']
 
 # 博客文章目录
 BLOG_DIR = os.path.join(os.path.dirname(__file__), 'blogs')
@@ -446,7 +452,9 @@ def index():
                           skip_welcome=True, 
                           blogname=settings['blogname'],
                           blognamestart=settings['blognamestart'],
-                          headerlightcount=settings['headerlightcount'])
+                          headerlightcount=settings['headerlightcount'],
+                          bugcool_verification=BUGCOOL_VERIFICATION,
+                          bugcool_verification_content=BUGCOOL_VERIFICATION_CONTENT)
 
 @app.route('/friendly_links.json')
 def friendly_links():
@@ -471,7 +479,9 @@ def archive():
     return render_template('archive.html',
                           blogname=settings['blogname'],
                           blognamestart=settings['blognamestart'],
-                          headerlightcount=settings['headerlightcount'])
+                          headerlightcount=settings['headerlightcount'],
+                          bugcool_verification=BUGCOOL_VERIFICATION,
+                          bugcool_verification_content=BUGCOOL_VERIFICATION_CONTENT)
 
 @app.route('/api/articles/dates')
 def get_articles_dates():
@@ -1414,7 +1424,9 @@ def read_article(category, article_id):
                           article_id=f"{category}/{article_id}", 
                           comments=comments, 
                           close_comment=CLOSE_COMMENT,
-                          blogname=settings['blogname'])
+                          blogname=settings['blogname'],
+                          bugcool_verification=BUGCOOL_VERIFICATION,
+                          bugcool_verification_content=BUGCOOL_VERIFICATION_CONTENT)
 
 @app.route('/browsertest')
 def browsertest():

@@ -1,3 +1,5 @@
 .vscode/
 .trae/
+.workbuddy/
+.venv/
 __pycache__/
